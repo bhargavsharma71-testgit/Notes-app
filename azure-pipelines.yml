@@ -1,0 +1,53 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  azureServiceConnection: 'azure-conn'
+
+stages:
+
+# 🔹 STAGE 1: DEV
+- stage: Dev
+  displayName: Deploy to DEV
+  jobs:
+  - job: DeployDev
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.10'
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: Install dependencies
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '.'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+        replaceExistingArchive: true
+
+    - task: AzureWebApp@1
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        appName: 'sampletestapp-dev'
+        package: '$(Build.ArtifactStagingDirectory)/app.zip'
+
+
+# 🔹 STAGE 2: PROD
+- stage: Prod
+  displayName: Deploy to PROD
+  dependsOn: Dev
+  jobs:
+  - job: DeployProd
+    steps:
+    - task: AzureWebApp@1
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        appName: 'sampletestapp'
+        package: '$(Build.ArtifactStagingDirectory)/app.zip'
