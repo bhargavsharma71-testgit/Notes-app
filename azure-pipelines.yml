@@ -9,11 +9,9 @@ variables:
 
 stages:
 
-# 🔹 STAGE 1: DEV
 - stage: Dev
-  displayName: Deploy to DEV
   jobs:
-  - job: DeployDev
+  - job: BuildAndDeployDev
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -22,7 +20,6 @@ stages:
     - script: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-      displayName: Install dependencies
 
     - task: ArchiveFiles@2
       inputs:
@@ -32,6 +29,11 @@ stages:
         archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
         replaceExistingArchive: true
 
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)/app.zip'
+        artifactName: 'drop'
+
     - task: AzureWebApp@1
       inputs:
         azureSubscription: $(azureServiceConnection)
@@ -39,15 +41,21 @@ stages:
         package: '$(Build.ArtifactStagingDirectory)/app.zip'
 
 
-# 🔹 STAGE 2: PROD
 - stage: Prod
-  displayName: Deploy to PROD
   dependsOn: Dev
   jobs:
   - job: DeployProd
     steps:
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(Pipeline.Workspace)'
+
     - task: AzureWebApp@1
       inputs:
         azureSubscription: $(azureServiceConnection)
         appName: 'sampletestapp'
-        package: '$(Build.ArtifactStagingDirectory)/app.zip'
+        package: '$(Pipeline.Workspace)/drop/app.zip'
